@@ -119,10 +119,10 @@ public class CardRenderer {
         nextBtnX = btnStartX + (BUTTON_W + PADDING) * 2;
         nextBtnY = curY;
 
-        drawButton(ctx, tr, prevBtnX, curY, BUTTON_W, BUTTON_H, "<<",  textCol);
-        String playLabel = (info != null && info.isPlaying()) ? "||" : "|>";
+        drawButton(ctx, tr, prevBtnX, curY, BUTTON_W, BUTTON_H, "⏮", textCol);
+        String playLabel = (info != null && info.isPlaying()) ? "⏸" : "▶";
         drawButton(ctx, tr, playBtnX, curY, BUTTON_W, BUTTON_H, playLabel, textCol);
-        drawButton(ctx, tr, nextBtnX, curY, BUTTON_W, BUTTON_H, ">>",  textCol);
+        drawButton(ctx, tr, nextBtnX, curY, BUTTON_W, BUTTON_H, "⏭", textCol);
     }
 
     private static void drawButton(DrawContext ctx, TextRenderer tr,
