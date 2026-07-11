@@ -1,0 +1,50 @@
+// NOTE: Minecraft 26.1.2 uses the new version numbering scheme.
+// Yarn mappings do NOT exist for 26.1.2 — official Mojang mappings are used instead.
+// Verify loom_version and other deps at https://fabricmc.net/develop before building.
+plugins {
+    id 'fabric-loom' version '1.9-SNAPSHOT'
+    id 'java'
+}
+
+group = 'com.evand'
+version = '1.0.0'
+base { archivesName = 'musicplayer-26.1.2' }
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    withSourcesJar()
+}
+
+sourceSets {
+    main {
+        java   { srcDir "${rootDir}/common-src" }
+        resources { srcDir "${rootDir}/common-resources" }
+    }
+}
+
+repositories {
+    maven { url 'https://maven.fabricmc.net/' }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    // Yarn mappings do not exist for 26.1.2; using official Mojang mappings
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    compileOnly "org.jetbrains:annotations:24.0.0"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand version: project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}

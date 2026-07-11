@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Gradle wrapper stub — run `gradle wrapper` in this directory to generate the full wrapper.
+exec gradle "$@"
