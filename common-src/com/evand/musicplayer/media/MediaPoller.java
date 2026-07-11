@@ -1,6 +1,7 @@
 // common-src/com/evand/musicplayer/media/MediaPoller.java
 package com.evand.musicplayer.media;
 
+import com.evand.musicplayer.media.ThumbnailManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -55,8 +56,11 @@ public class MediaPoller {
                 try {
                     MediaInfo info = pollSmtc();
                     osMediaRef.set(info);
+                    String thumbPath = (info != null && info.hasThumbnail()) ? info.thumbnailPath() : "";
+                    ThumbnailManager.INSTANCE.queuePath(thumbPath);
                 } catch (Exception e) {
                     osMediaRef.set(null);
+                    ThumbnailManager.INSTANCE.queuePath("");
                 }
             }
             try {
