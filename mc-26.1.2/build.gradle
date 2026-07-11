@@ -2,7 +2,7 @@
 // Yarn mappings do NOT exist for 26.1.2 — official Mojang mappings are used instead.
 // Verify loom_version and other deps at https://fabricmc.net/develop before building.
 plugins {
-    id 'fabric-loom' version '1.9-SNAPSHOT'
+    id 'fabric-loom' version '1.17-SNAPSHOT'
     id 'java'
 }
 
