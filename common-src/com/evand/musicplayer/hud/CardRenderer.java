@@ -29,9 +29,18 @@ public class CardRenderer {
     public static int btnW = BUTTON_W, btnH = BUTTON_H;
     public static int barX, barY, barWidth;
 
+    /**
+     * True once {@link #draw} has been called at least once during the current
+     * expansion.  Reset to {@code false} when the card collapses so that stale
+     * hit-test coordinates cannot fire phantom control actions during the brief
+     * window where {@code progress > 0} but {@code draw()} has not yet executed.
+     */
+    public static boolean cardDrawn = false;
+
     public static void draw(DrawContext ctx, MediaInfo info, MarqueeText marquee,
                             PillAnimation anim, int x, int y, float alpha,
                             SeekCallback onSeek) {
+        cardDrawn = true;
         int w = (int) anim.width();
         int h = (int) anim.height();
 

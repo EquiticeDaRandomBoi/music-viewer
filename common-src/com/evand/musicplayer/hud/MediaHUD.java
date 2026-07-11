@@ -109,13 +109,14 @@ public class MediaHUD {
                     anim.expand();
                 } else {
                     anim.collapse();
+                    CardRenderer.cardDrawn = false;
                 }
                 return true;
             }
         }
 
         // Left-click on expanded card: hit-test control buttons and timeline
-        if (button == 0 && !anim.isCollapsed()) {
+        if (button == 0 && !anim.isCollapsed() && CardRenderer.cardDrawn) {
             if (inBounds(mx, my, CardRenderer.prevBtnX, CardRenderer.prevBtnY,
                          CardRenderer.btnW, CardRenderer.btnH)) {
                 MediaController.INSTANCE.previous();
