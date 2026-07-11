@@ -23,7 +23,7 @@ public class ModConfig {
             try {
                 String json = Files.readString(CONFIG_PATH);
                 return GSON.fromJson(json, ModConfig.class);
-            } catch (IOException e) {
+            } catch (IOException | com.google.gson.JsonParseException e) {
                 return new ModConfig();
             }
         }
