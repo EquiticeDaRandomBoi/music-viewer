@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "musicplayer",
+  "version": "${version}",
+  "name": "Music Player",
+  "description": "OS media player HUD pill for Minecraft",
+  "authors": ["evand"],
+  "environment": "*",
+  "entrypoints": {
+    "main":   ["com.evand.musicplayer.MusicPlayerMod"],
+    "client": ["com.evand.musicplayer.client.MusicPlayerClient"]
+  },
+  "mixins": ["musicplayer.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.17.0",
+    "fabric-api": "*",
+    "minecraft": "~26.1.2"
+  }
+}
