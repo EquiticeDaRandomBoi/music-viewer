@@ -199,6 +199,14 @@ public class MediaHUD {
 
             // Control buttons
             if (cardVisible) {
+                if (inBounds(mx, my, CardRenderer.prevBtnX, CardRenderer.prevBtnY,
+                             CardRenderer.btnW, CardRenderer.btnH)) {
+                    MediaController.INSTANCE.previous(); return true;
+                }
+                if (inBounds(mx, my, CardRenderer.nextBtnX, CardRenderer.nextBtnY,
+                             CardRenderer.btnW, CardRenderer.btnH)) {
+                    MediaController.INSTANCE.next(); return true;
+                }
                 if (inBounds(mx, my, CardRenderer.playBtnX, CardRenderer.playBtnY,
                              CardRenderer.btnW, CardRenderer.btnH)) {
                     MediaInfo cur = MediaPoller.INSTANCE.get();

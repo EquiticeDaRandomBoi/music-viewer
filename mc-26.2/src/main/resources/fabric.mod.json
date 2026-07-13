@@ -6,8 +6,9 @@
   "description": "Shows a live music HUD pill/card in-game for whatever is playing on your PC. Windows only (uses Windows SMTC). Displays title, artist, album art, seek bar, and play/pause control.",
   "authors": ["evand"],
   "contact": {
-    "sources": "https://github.com/AstroDaRandomBoi/musicplayer"
+    "sources": "https://github.com/EquiticeDaRandomBoi/music-viewer"
   },
+  "icon": "icon.png",
   "license": "MIT",
   "environment": "client",
   "entrypoints": {

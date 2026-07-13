@@ -52,7 +52,6 @@ $lastTitle    = $null
 $lastSource   = $null
 $thumbPath    = ''
 $thumbFetched = $false   # retry each poll until thumbnail successfully written
-$thumbLog     = [System.IO.Path]::Combine($tempDir, 'thumb_ps_debug.log')
 
 while ($true) {
     $line = [Console]::In.ReadLine()
@@ -101,8 +100,6 @@ while ($true) {
             $lastSource   = $sourceId
             $thumbPath    = ''
             $thumbFetched = $false
-            "$(Get-Date -F 'HH:mm:ss') track change: '$title' / '$sourceId'" |
-                Add-Content $thumbLog -EA SilentlyContinue
         }
 
         # Fetch thumbnail on every poll until successful (handles first-poll failures
@@ -132,8 +129,6 @@ while ($true) {
                             $src, [System.Windows.Media.PixelFormats]::Rgb24, $null, 0)
                         $pw = $rgb.PixelWidth
                         $ph = $rgb.PixelHeight
-                        "$(Get-Date -F 'HH:mm:ss') decoded ${pw}x${ph} rawBytes=$($rawBytes.Length)" |
-                            Add-Content $thumbLog -EA SilentlyContinue
 
                         # Letterbox to square: full thumbnail visible with black bars rather
                         # than a center crop. CopyPixels forces WPF to realise the lazy bitmap.
@@ -164,24 +159,14 @@ while ($true) {
                         $ms2 = [System.IO.MemoryStream]::new()
                         $enc.Save($ms2)
                         $pngBytes = $ms2.ToArray()
-                        "$(Get-Date -F 'HH:mm:ss') encoded ${side}x${side} png=$($pngBytes.Length) bytes" |
-                            Add-Content $thumbLog -EA SilentlyContinue
                         if ($pngBytes.Length -gt 0) {
                             [System.IO.File]::WriteAllBytes($tempThumb, $pngBytes)
                             $thumbPath    = $tempThumb
                             $thumbFetched = $true
-                            "$(Get-Date -F 'HH:mm:ss') saved OK -> $tempThumb" |
-                                Add-Content $thumbLog -EA SilentlyContinue
                         }
-                    } catch {
-                        "$(Get-Date -F 'HH:mm:ss') ENCODE ERROR: $_" |
-                            Add-Content $thumbLog -EA SilentlyContinue
-                    }
+                    } catch { }
                 }
-            } catch {
-                "$(Get-Date -Format 'HH:mm:ss') thumb error: $_" |
-                    Add-Content "$env:TEMP\musicplayer\thumb_debug.log" -ErrorAction SilentlyContinue
-            }
+            } catch { }
         }
 
         $status    = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackStatus]
