@@ -17,13 +17,10 @@ public class MediaPoller {
     private static final boolean IS_WINDOWS       =
         System.getProperty("os.name", "").toLowerCase().startsWith("win");
 
-    // Prefer PS 7+ (pwsh.exe) for better out-of-the-box UTF-8 Unicode support.
-    // PS 7 installs to this path by default; fall back to built-in PS 5.1.
-    private static final String PS_EXE = detectPowerShell();
-    private static String detectPowerShell() {
-        Path p = Path.of("C:\\Program Files\\PowerShell\\7\\pwsh.exe");
-        return Files.exists(p) ? p.toString() : "powershell.exe";
-    }
+    // Must use PS 5.1 (powershell.exe) — the media script uses WinRT reflection that
+    // fails under PS 7 / .NET Core (GetParameters() throws 0x80131539 on WinRT MethodInfo).
+    // PS 5.1 is built into Windows and cannot be removed, so this is always safe.
+    private static final String PS_EXE = "powershell.exe";
 
     private final AtomicReference<MediaInfo> osMediaRef = new AtomicReference<>(null);
     private final AtomicReference<String>    mcTrackRef = new AtomicReference<>(null);
