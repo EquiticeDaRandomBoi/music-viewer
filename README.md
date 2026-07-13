@@ -1,108 +1,47 @@
 # Music Player HUD
 
-A Fabric mod that displays a live music HUD inside Minecraft showing whatever is playing on your PC — title, artist, album art, progress bar, and a play/pause button.
+Shows what's playing on your PC as a little pill widget in Minecraft. Album art, title, artist, seek bar, play/pause. Windows only — it hooks into Windows SMTC so anything that registers there (Spotify, browsers, VLC, etc.) just works automatically.
 
-**Windows only.** Uses the Windows System Media Transport Controls (SMTC) API, which any media app that registers with it (Spotify, YouTube in browsers, VLC, Apple Music, etc.) automatically feeds into.
+## What it does
 
----
+Small pill at the top of the screen shows the current track. Right-click to expand a card with a seek bar and playback controls. Alt+drag to reposition it. Long titles scroll. Album art crossfades when tracks change. Seek bar interpolates every frame.
 
-## Features
+Nothing to configure — drop in the mod and play music.
 
-- **Pill widget** — compact bar at the top of the screen with album art, title, and artist
-- **Expanded card** — right-click the pill to open a full card with seek bar and play/pause button
-- **Album art** — thumbnail fetched from SMTC, letterboxed to square with rounded corners
-- **Crossfade** — smooth dip-to-black animation when the song changes
-- **Live seek bar** — interpolated locally so the timer advances every frame, not just every poll
-- **Seek control** — click and drag the bar to jump position
-- **Smart session selection** — prefers actively playing sessions; if Spotify and a browser are both open, picks whichever is playing
-- **Marquee scroll** — long titles scroll automatically
-- **Draggable** — hold Alt and drag the pill to any position on screen
+## Versions
 
----
-
-## Supported Minecraft Versions
-
-| Subproject | Minecraft | Mappings | Java |
+| Subproject | MC versions | Mappings | Java |
 |---|---|---|---|
 | `mc-1.21.11` | 1.21 – 1.21.11 | Yarn | 21 |
 | `mc-26.1.2` | 26.1.x | Mojang (identity) | 25 |
-| `mc-26.2` *(template)* | 26.2.x | Mojang (identity) | 25 |
 
-Requires **Fabric Loader** and **Fabric API**.
+Needs Fabric Loader + Fabric API. Windows 10/11 only.
 
----
+## Install
 
-## Requirements
+Grab the JAR from [Releases](../../releases), drop it in `.minecraft/mods/` with Fabric API.
 
-- Windows 10 or 11
-- Fabric Loader installed for your MC version
-- Fabric API installed
-- Java 21+ (Java 25 required for 26.x builds)
-- A media app that registers with SMTC (Spotify, any Chromium-based browser, VLC, etc.)
+## Controls
 
----
+- Right-click pill → expand/collapse card
+- Alt + drag pill → reposition
+- Drag seek bar → seek
+- Click play/pause → toggle playback
 
-## Installation
-
-1. Download the JAR for your MC version from the [Releases](../../releases) page.
-2. Drop the JAR into your `.minecraft/mods/` folder alongside Fabric API.
-3. Launch Minecraft. The HUD appears automatically when any supported media is playing.
-
----
-
-## Usage
-
-| Action | Result |
-|---|---|
-| Right-click pill | Expand / collapse card |
-| Alt + drag pill | Move pill to any screen position |
-| Click + drag seek bar | Seek to that position |
-| Click play/pause button | Toggle playback |
-
-The HUD hides when nothing is playing.
-
----
-
-## Building from Source
-
-Requires Gradle (wrapper included in each subproject).
+## Building
 
 ```bat
-rem MC 1.21.11
-cd mc-1.21.11
-gradlew.bat build
-
-rem MC 26.1.2
-cd mc-26.1.2
-gradlew.bat build
+cd mc-1.21.11 && gradlew.bat build
+cd mc-26.1.2  && gradlew.bat build
 ```
 
-Output JARs are in `mc-<version>/build/libs/`.
+JARs end up in `<subproject>/build/libs/`.
 
-The root `gradle.properties` forces the Gradle daemon onto Java 25 so both subprojects can be configured simultaneously:
+## How it works
 
-```bat
-rem Build all active subprojects from root (using mc-1.21.11's wrapper)
-cd mc-1.21.11
-gradlew.bat :mc-1.21.11:build :mc-26.1.2:build
-```
+A PowerShell subprocess (`get_media_server.ps1`) runs in the background. Java polls it every 200 ms by writing `poll` to stdin; the script responds with a JSON line — title, artist, position, duration, thumbnail path. A second script handles playback commands.
 
-### Adding a new MC version
-
-1. Copy `mc-26.2/` as a template.
-2. Update `gradle.properties` with the correct `minecraft_version`, `loader_version`, and `fabric_version`.
-3. Uncomment `include 'mc-26.2'` in `settings.gradle`.
-4. If the MC version introduces API changes in the HUD/texture layer, add override files in `mc-<new>/src/main/java/` and mirror the excludes in `build.gradle`.
-
----
-
-## How It Works
-
-A persistent PowerShell server (`get_media_server.ps1`) runs as a subprocess. Java writes `poll` to its stdin every 200 ms; the script responds with a JSON line containing title, artist, position, duration, thumbnail path, and source app. A separate server (`control_media_server.ps1`) handles playback commands (play/pause, seek, skip).
-
-Thumbnails are fetched via WinRT's `ThumbnailReference`, decoded through WPF's `BitmapDecoder`, converted to RGB24, letterboxed to a square with black bars, then saved as PNG to a temp file. Java loads the PNG into a `NativeImage` and registers it as a Minecraft texture. Two texture slots (A and B) alternate on each track change so the old thumbnail stays alive during the 500 ms dip-to-black crossfade.
-
----
+Thumbnails come from WinRT's `ThumbnailReference`, decoded via WPF, letterboxed to a square, saved as PNG to a temp file, then loaded as a Minecraft texture. Two slots alternate on track change so the old thumbnail stays alive during the 500 ms crossfade.
 
 ## License
 
