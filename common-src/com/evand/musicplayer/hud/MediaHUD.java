@@ -188,10 +188,10 @@ public class MediaHUD {
         if (button == 0) {
             boolean cardVisible = !anim.isCollapsed() && CardRenderer.cardDrawn;
 
-            // Timeline seek-drag start
+            // Timeline seek-drag start — tall hit zone so the thin bar is easy to grab
             if (cardVisible
-                    && my >= CardRenderer.barY && my <= CardRenderer.barY + 8
-                    && mx >= CardRenderer.barX  && mx <= CardRenderer.barX + CardRenderer.barWidth) {
+                    && my >= CardRenderer.barY - 8 && my <= CardRenderer.barY + 14
+                    && mx >= CardRenderer.barX      && mx <= CardRenderer.barX + CardRenderer.barWidth) {
                 seekDragging = true;
                 seekFrac = clamp01((float)(mx - CardRenderer.barX) / CardRenderer.barWidth);
                 return true;

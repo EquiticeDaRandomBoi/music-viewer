@@ -103,8 +103,14 @@ public class CardRenderer {
                 RoundedRectRenderer.fill(ctx, barX, barY, progW, BAR_H, BAR_H / 2f, barFg);
             }
 
+            // Seek knob — 6×6 circle at the playhead position
+            int knobD = 6;
+            int knobCX = barX + Math.max(0, Math.min(barWidth, progW));
+            RoundedRectRenderer.fill(ctx, knobCX - knobD / 2, barY + BAR_H / 2 - knobD / 2,
+                    knobD, knobD, knobD / 2f, barFg);
+
             // Timestamps
-            int tsY = barY + BAR_H + 3;   // y+56
+            int tsY = barY + BAR_H + 5;
             String elapsed   = info.elapsedFormatted();
             String remaining = info.remainingFormatted();
             ctx.drawText(tr, elapsed,   barX,                                    tsY, dimCol, false);

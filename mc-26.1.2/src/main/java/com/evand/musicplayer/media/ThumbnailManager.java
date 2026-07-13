@@ -82,6 +82,7 @@ public class ThumbnailManager {
         } catch (Exception e) {
             log("FAILED: " + e);
             System.err.println("[MusicPlayer] Thumbnail load failed: " + e);
+            pendingPath.compareAndSet(null, path);  // retry next frame
         }
     }
 

@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class MediaPoller {
@@ -37,6 +38,7 @@ public class MediaPoller {
 
     private String lastQueuedThumb = null;
     private String lastTitle       = null;
+    private String lastSourceApp   = null;
 
     private MediaPoller() {}
 
@@ -77,13 +79,17 @@ public class MediaPoller {
                     osMediaRef.set(info);
 
                     if (info != null && info.hasThumbnail()) {
-                        String thumb = info.thumbnailPath();
-                        String title = info.title();
-                        if (!thumb.equals(lastQueuedThumb) ||
-                                (title != null && !title.equals(lastTitle))) {
+                        String thumb  = info.thumbnailPath();
+                        String title  = info.title();
+                        String source = info.sourceApp();
+                        boolean changed = !thumb.equals(lastQueuedThumb)
+                                || !Objects.equals(title,  lastTitle)
+                                || !Objects.equals(source, lastSourceApp);
+                        if (changed) {
                             ThumbnailManager.INSTANCE.queuePath(thumb);
                             lastQueuedThumb = thumb;
                             lastTitle       = title;
+                            lastSourceApp   = source;
                         }
                     } else if (lastQueuedThumb != null && !lastQueuedThumb.isEmpty()) {
                         ThumbnailManager.INSTANCE.queuePath("");
