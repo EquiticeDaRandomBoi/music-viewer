@@ -1,0 +1,13 @@
+# Gradle
+build/
+**/build/
+.gradle/
+**/gradle/wrapper/gradle-*.zip
+**/gradle/wrapper/*.bak*
+
+# Loom-generated assets (not source)
+mc-*/assets/
+mc-*/net/
+
+# JVM crash/heap dumps
+*.hprof

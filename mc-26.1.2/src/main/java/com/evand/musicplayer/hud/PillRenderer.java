@@ -1,11 +1,11 @@
-// common-src/com/evand/musicplayer/hud/PillRenderer.java  (MC 1.21.11 / Yarn API)
 package com.evand.musicplayer.hud;
 
 import com.evand.musicplayer.media.MediaInfo;
 import com.evand.musicplayer.media.ThumbnailManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 
 public class PillRenderer {
     private static final int   BG_COLOR     = 0xFF000000;
@@ -18,7 +18,7 @@ public class PillRenderer {
     private static final float TITLE_SCALE  = 0.85f;
     private static final float ARTIST_SCALE = 0.75f;
 
-    public static void draw(DrawContext ctx, MediaInfo info, MarqueeText marquee,
+    public static void draw(GuiGraphicsExtractor ctx, MediaInfo info, MarqueeText marquee,
                             int x, int y, int w, int h) {
         RoundedRectRenderer.fill(ctx, x, y, w, h, CORNER_R, BG_COLOR);
 
@@ -32,7 +32,7 @@ public class PillRenderer {
             RoundedRectRenderer.fillSquircle(ctx, thumbX, thumbY, THUMB_SIZE, THUMB_R, 0xFF333333);
         }
 
-        var tr = MinecraftClient.getInstance().textRenderer;
+        Font font = Minecraft.getInstance().font;
 
         int textX    = thumbX + THUMB_SIZE + PAD;
         int textMaxW = (x + w) - textX - PAD;
@@ -55,32 +55,42 @@ public class PillRenderer {
         ctx.enableScissor(textX - 1, y, textX + textMaxW, y + h);
         marquee.update(title);
         marquee.setBoxWidth((int)(textMaxW / TITLE_SCALE));
-        ctx.getMatrices().pushMatrix();
-        ctx.getMatrices().scale(TITLE_SCALE, TITLE_SCALE);
-        int off  = marquee.drawOffset();
-        int ty   = (int)(titleY / TITLE_SCALE);
-        ctx.drawText(tr, title, (int)((textX - off) / TITLE_SCALE), ty, TEXT_COLOR, false);
+        ctx.pose().pushMatrix();
+        ctx.pose().scale(TITLE_SCALE, TITLE_SCALE);
+        int off = marquee.drawOffset();
+        int ty  = (int)(titleY / TITLE_SCALE);
+        ctx.text(font, title, (int)((textX - off) / TITLE_SCALE), ty, TEXT_COLOR);
         if (marquee.scrolls()) {
-            ctx.drawText(tr, title,
+            ctx.text(font, title,
                     (int)((textX - off + marquee.textWidth() + MarqueeText.GAP_PX) / TITLE_SCALE),
-                    ty, TEXT_COLOR, false);
+                    ty, TEXT_COLOR);
         }
-        ctx.getMatrices().popMatrix();
+        ctx.pose().popMatrix();
         ctx.disableScissor();
 
         // Artist at ARTIST_SCALE — trim with ellipsis if too wide
         if (artistY >= 0) {
             float s = ARTIST_SCALE;
             int artistMaxPx = (int)(textMaxW / s);
-            String displayArtist = tr.getWidth(artist) > artistMaxPx
-                    ? tr.trimToWidth(artist, artistMaxPx - tr.getWidth("...")) + "..."
-                    : artist;
+            String displayArtist = ellipsize(font, artist, artistMaxPx);
             ctx.enableScissor(textX - 1, y, textX + textMaxW, y + h);
-            ctx.getMatrices().pushMatrix();
-            ctx.getMatrices().scale(s, s);
-            ctx.drawText(tr, displayArtist, (int)(textX / s), (int)(artistY / s), DIM_COLOR, false);
-            ctx.getMatrices().popMatrix();
+            ctx.pose().pushMatrix();
+            ctx.pose().scale(s, s);
+            ctx.text(font, displayArtist, (int)(textX / s), (int)(artistY / s), DIM_COLOR);
+            ctx.pose().popMatrix();
             ctx.disableScissor();
         }
+    }
+
+    private static String ellipsize(Font font, String s, int maxPx) {
+        if (font.width(s) <= maxPx) return s;
+        int limit = maxPx - font.width("...");
+        int w = 0, end = 0;
+        for (int i = 0; i < s.length(); i++) {
+            int cw = font.width(s.substring(i, i + 1));
+            if (w + cw > limit) break;
+            w += cw; end = i + 1;
+        }
+        return s.substring(0, end) + "...";
     }
 }

@@ -1,13 +1,13 @@
-// common-src/com/evand/musicplayer/hud/RoundedRectRenderer.java  (MC 1.21.11 / Yarn API)
 package com.evand.musicplayer.hud;
 
 import com.evand.musicplayer.media.ThumbnailManager;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 
 public class RoundedRectRenderer {
 
-    public static void fill(DrawContext ctx, float x, float y, float w, float h, float r, int color) {
+    public static void fill(GuiGraphicsExtractor ctx, float x, float y, float w, float h, float r, int color) {
         r = Math.min(r, Math.min(w / 2f, h / 2f));
 
         int ix  = (int) x;
@@ -30,21 +30,21 @@ public class RoundedRectRenderer {
             float dx     = (float) Math.sqrt((double) ir * ir - dy * dy);
             int   xInset = Math.round(ir - dx);
 
-            ctx.fill(ix + xInset, iy + row,        ix2 - xInset, iy + row + 1,  color);
-            ctx.fill(ix + xInset, iy2 - row - 1,   ix2 - xInset, iy2 - row,     color);
+            ctx.fill(ix + xInset, iy + row,      ix2 - xInset, iy + row + 1,  color);
+            ctx.fill(ix + xInset, iy2 - row - 1, ix2 - xInset, iy2 - row,     color);
         }
     }
 
-    public static void fillSquircle(DrawContext ctx, float x, float y, float size, float r, int color) {
+    public static void fillSquircle(GuiGraphicsExtractor ctx, float x, float y, float size, float r, int color) {
         fill(ctx, x, y, size, size, r, color);
     }
 
     /**
      * Draw a texture in a rounded square, with a dip-to-black crossfade when the
-     * thumbnail changes.  The crossfade state is read from ThumbnailManager directly;
-     * {@code tex} is the CURRENT slot identifier (already obtained by the caller).
+     * thumbnail changes.  Uses DynamicTexture GPU views directly (avoids TextureManager lookup).
+     * The {@code tex} Identifier parameter is accepted for API symmetry but not used here.
      */
-    public static void drawTextureSquircle(DrawContext ctx, Identifier tex,
+    public static void drawTextureSquircle(GuiGraphicsExtractor ctx, Identifier tex,
                                            float x, float y, float size, float r,
                                            int bgColor) {
         int ix = (int) x;
@@ -52,19 +52,16 @@ public class RoundedRectRenderer {
         int is = (int) size;
         int ir = (int) r;
 
-        float      fade    = ThumbnailManager.INSTANCE.getFadeProgress();
-        Identifier prevTex = ThumbnailManager.INSTANCE.getPrevTexture();
-        boolean    hasPrev = prevTex != null;
+        float          fade   = ThumbnailManager.INSTANCE.getFadeProgress();
+        DynamicTexture currDt = ThumbnailManager.INSTANCE.getTextureObj();
+        DynamicTexture prevDt = ThumbnailManager.INSTANCE.getPrevTextureObj();
+        boolean        hasPrev = prevDt != null;
 
-        // Dip-to-black crossfade:
-        //   Phase 1 (fade 0 → 0.5): draw prev, fade to black
-        //   Phase 2 (fade 0.5 → 1): draw curr, fade from black
-        //   Steady (fade == 1):     draw curr, no overlay
         if (hasPrev && fade < 0.5f) {
-            ctx.drawTexturedQuad(prevTex, ix, iy, ix + is, iy + is, 0f, 1f, 0f, 1f);
+            blitDt(ctx, prevDt, ix, iy, is);
             fillBlack(ctx, ix, iy, is, fade * 2f);
-        } else if (tex != null) {
-            ctx.drawTexturedQuad(tex, ix, iy, ix + is, iy + is, 0f, 1f, 0f, 1f);
+        } else if (currDt != null) {
+            blitDt(ctx, currDt, ix, iy, is);
             if (hasPrev && fade < 1f) {
                 fillBlack(ctx, ix, iy, is, (1f - fade) * 2f);
             }
@@ -73,13 +70,20 @@ public class RoundedRectRenderer {
         maskCorners(ctx, ix, iy, is, ir, bgColor);
     }
 
-    private static void fillBlack(DrawContext ctx, int ix, int iy, int is, float alpha) {
+    private static void blitDt(GuiGraphicsExtractor ctx, DynamicTexture dt, int ix, int iy, int is) {
+        var view = dt.getTextureView();
+        if (view != null) {
+            ctx.blit(view, dt.getSampler(), ix, iy, ix + is, iy + is, 0f, 1f, 0f, 1f);
+        }
+    }
+
+    private static void fillBlack(GuiGraphicsExtractor ctx, int ix, int iy, int is, float alpha) {
         if (alpha <= 0.001f) return;
         int a = (int)(Math.min(1f, alpha) * 255) & 0xFF;
         ctx.fill(ix, iy, ix + is, iy + is, a << 24);
     }
 
-    private static void maskCorners(DrawContext ctx, int ix, int iy, int is, int ir, int bgColor) {
+    private static void maskCorners(GuiGraphicsExtractor ctx, int ix, int iy, int is, int ir, int bgColor) {
         if (ir <= 0) return;
         for (int row = 0; row < ir; row++) {
             float dy     = ir - row - 0.5f;

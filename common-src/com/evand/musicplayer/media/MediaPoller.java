@@ -1,8 +1,6 @@
 // common-src/com/evand/musicplayer/media/MediaPoller.java
 package com.evand.musicplayer.media;
 
-import com.evand.musicplayer.media.ThumbnailManager;
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -14,23 +12,46 @@ import java.util.concurrent.atomic.AtomicReference;
 public class MediaPoller {
     public static final MediaPoller INSTANCE = new MediaPoller();
 
-    private static final long POLL_INTERVAL_MS = 500;
-    private static final Gson GSON = new Gson();
+    private static final long    POLL_INTERVAL_MS = 200;
+    private static final int     MAX_FAIL_COUNT   = 5;
+    private static final boolean IS_WINDOWS       =
+        System.getProperty("os.name", "").toLowerCase().startsWith("win");
+
+    // Prefer PS 7+ (pwsh.exe) for better out-of-the-box UTF-8 Unicode support.
+    // PS 7 installs to this path by default; fall back to built-in PS 5.1.
+    private static final String PS_EXE = detectPowerShell();
+    private static String detectPowerShell() {
+        Path p = Path.of("C:\\Program Files\\PowerShell\\7\\pwsh.exe");
+        return Files.exists(p) ? p.toString() : "powershell.exe";
+    }
 
     private final AtomicReference<MediaInfo> osMediaRef = new AtomicReference<>(null);
     private final AtomicReference<String>    mcTrackRef = new AtomicReference<>(null);
 
-    private volatile Thread pollThread;
-    private volatile boolean running = false;
+    private volatile Thread  pollThread;
+    private volatile boolean running      = false;
+    private volatile long    lastPollTime = 0L;
     private Path scriptPath;
+
+    private Process        pollerProcess = null;
+    private PrintWriter    pollerStdin   = null;
+    private BufferedReader pollerStdout  = null;
+    private int            failCount     = 0;
+
+    private String lastQueuedThumb = null;
+    private String lastTitle       = null;
 
     private MediaPoller() {}
 
     public void start() {
         if (running) return;
-        scriptPath = extractScript();
-        if (scriptPath == null) {
-            System.err.println("[MusicPlayer] Failed to extract get_media.ps1 — OS media disabled");
+        if (IS_WINDOWS) {
+            scriptPath = extractScript("get_media_server.ps1");
+            if (scriptPath == null) {
+                System.err.println("[MusicPlayer] Failed to extract get_media_server.ps1");
+            }
+        } else {
+            System.out.println("[MusicPlayer] Non-Windows OS — SMTC polling disabled");
         }
         running = true;
         pollThread = new Thread(this::pollLoop, "MusicPlayer-Poller");
@@ -41,81 +62,128 @@ public class MediaPoller {
     public void stop() {
         running = false;
         if (pollThread != null) pollThread.interrupt();
+        stopPoller();
     }
 
-    /** Current OS (SMTC) media info. Null if nothing playing or Windows unavailable. */
-    public MediaInfo get() { return osMediaRef.get(); }
-
-    /** Set by MusicTrackerMixin when Minecraft starts a music track. */
-    public void setMinecraftTrack(String title) { mcTrackRef.set(title); }
-    public String getMinecraftTrack()           { return mcTrackRef.get(); }
+    public MediaInfo get()                        { return osMediaRef.get(); }
+    public long      getLastPollTimeMs()          { return lastPollTime; }
+    public void      setMinecraftTrack(String t)  { mcTrackRef.set(t); }
+    public String    getMinecraftTrack()          { return mcTrackRef.get(); }
 
     private void pollLoop() {
         while (running) {
             if (scriptPath != null) {
                 try {
                     MediaInfo info = pollSmtc();
+                    failCount    = 0;
+                    lastPollTime = System.currentTimeMillis();
                     osMediaRef.set(info);
-                    String thumbPath = (info != null && info.hasThumbnail()) ? info.thumbnailPath() : "";
-                    ThumbnailManager.INSTANCE.queuePath(thumbPath);
+
+                    if (info != null && info.hasThumbnail()) {
+                        String thumb = info.thumbnailPath();
+                        String title = info.title();
+                        if (!thumb.equals(lastQueuedThumb) ||
+                                (title != null && !title.equals(lastTitle))) {
+                            ThumbnailManager.INSTANCE.queuePath(thumb);
+                            lastQueuedThumb = thumb;
+                            lastTitle       = title;
+                        }
+                    } else if (lastQueuedThumb != null && !lastQueuedThumb.isEmpty()) {
+                        ThumbnailManager.INSTANCE.queuePath("");
+                        lastQueuedThumb = "";
+                    }
+
                 } catch (Exception e) {
+                    stopPoller();
+                    failCount++;
                     osMediaRef.set(null);
-                    ThumbnailManager.INSTANCE.queuePath("");
+                    if (lastQueuedThumb != null && !lastQueuedThumb.isEmpty()) {
+                        ThumbnailManager.INSTANCE.queuePath("");
+                        lastQueuedThumb = "";
+                    }
+                    if (failCount >= MAX_FAIL_COUNT) {
+                        try { Thread.sleep(10_000); } catch (InterruptedException ex) { Thread.currentThread().interrupt(); return; }
+                        failCount = 0;
+                    }
                 }
             }
             try {
                 Thread.sleep(POLL_INTERVAL_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                break;
             }
         }
+        stopPoller();
     }
 
     private MediaInfo pollSmtc() throws Exception {
-        ProcessBuilder pb = new ProcessBuilder(
-            "powershell.exe",
-            "-ExecutionPolicy", "Bypass",
-            "-NoProfile",
-            "-NonInteractive",
-            "-File", scriptPath.toAbsolutePath().toString()
-        );
-        pb.redirectErrorStream(true);
-        Process proc = pb.start();
-
-        String output;
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
-            output = reader.lines()
-                .reduce("", (a, b) -> a + b)
-                .trim();
+        ensurePollerRunning();
+        pollerStdin.println("poll");
+        String line = pollerStdout.readLine();
+        if (line == null) {
+            stopPoller();
+            throw new IOException("Poller stdout closed");
         }
-        proc.waitFor();
+        // Strip UTF-8 BOM (U+FEFF) that PS 5.1 can emit at stream start.
+        if (!line.isEmpty() && line.charAt(0) == '﻿') line = line.substring(1);
+        line = line.trim();
+        if (line.isEmpty() || line.equals("{}")) return null;
 
-        if (output.isEmpty() || output.equals("{}")) return null;
-
-        JsonObject json = JsonParser.parseString(output).getAsJsonObject();
-        String title         = getStr(json, "title");
-        String artist        = getStr(json, "artist");
-        boolean isPlaying    = json.has("isPlaying") && json.get("isPlaying").getAsBoolean();
-        long positionMs      = json.has("positionMs") ? json.get("positionMs").getAsLong() : 0;
-        long durationMs      = json.has("durationMs") ? json.get("durationMs").getAsLong() : 0;
-        String thumbnailPath = getStr(json, "thumbnailPath");
-        String sourceApp     = getStr(json, "sourceApp");
+        JsonObject json    = JsonParser.parseString(line).getAsJsonObject();
+        String  title         = getStr(json, "title");
+        String  artist        = getStr(json, "artist");
+        boolean isPlaying     = json.has("isPlaying") && json.get("isPlaying").getAsBoolean();
+        long    positionMs    = json.has("positionMs") ? json.get("positionMs").getAsLong() : 0;
+        long    durationMs    = json.has("durationMs") ? json.get("durationMs").getAsLong() : 0;
+        String  thumbnailPath = getStr(json, "thumbnailPath");
+        String  sourceApp     = getStr(json, "sourceApp");
 
         if (title == null || title.isEmpty()) return null;
         return new MediaInfo(title, artist, isPlaying, positionMs, durationMs, thumbnailPath, sourceApp);
+    }
+
+    private synchronized void ensurePollerRunning() throws Exception {
+        if (pollerProcess != null && pollerProcess.isAlive()) return;
+        stopPoller();
+
+        ProcessBuilder pb = new ProcessBuilder(
+            PS_EXE, "-ExecutionPolicy", "Bypass",
+            "-NoProfile", "-NonInteractive",
+            "-File", scriptPath.toAbsolutePath().toString()
+        );
+        pollerProcess = pb.start();
+        pollerStdin   = new PrintWriter(
+            new OutputStreamWriter(pollerProcess.getOutputStream(), StandardCharsets.UTF_8), true);
+        pollerStdout  = new BufferedReader(
+            new InputStreamReader(pollerProcess.getInputStream(), StandardCharsets.UTF_8));
+
+        Process p = pollerProcess;
+        Thread stderr = new Thread(() -> {
+            try { p.getErrorStream().transferTo(OutputStream.nullOutputStream()); }
+            catch (Exception ignored) {}
+        }, "MusicPlayer-Poller-Err");
+        stderr.setDaemon(true);
+        stderr.start();
+    }
+
+    private void stopPoller() {
+        try { if (pollerProcess != null) pollerProcess.destroy(); } catch (Exception ignored) {}
+        pollerProcess = null;
+        pollerStdin   = null;
+        pollerStdout  = null;
     }
 
     private static String getStr(JsonObject json, String key) {
         return json.has(key) ? json.get(key).getAsString() : null;
     }
 
-    private static Path extractScript() {
+    private static Path extractScript(String name) {
         try {
-            Path dir = Path.of(System.getProperty("java.io.tmpdir"), "musicplayer");
+            Path dir  = Path.of(System.getProperty("java.io.tmpdir"), "musicplayer");
             Files.createDirectories(dir);
-            Path dest = dir.resolve("get_media.ps1");
-            try (InputStream is = MediaPoller.class.getResourceAsStream("/scripts/get_media.ps1")) {
+            Path dest = dir.resolve(name);
+            try (InputStream is = MediaPoller.class.getResourceAsStream("/scripts/" + name)) {
                 if (is == null) return null;
                 Files.copy(is, dest, StandardCopyOption.REPLACE_EXISTING);
             }

@@ -6,16 +6,17 @@ import com.evand.musicplayer.config.ModConfig;
 public class DragHandler {
     private final ModConfig config;
 
-    private boolean keyHeld    = false;
-    private boolean dragging   = false;
-    private double  offsetX    = 0;
-    private double  offsetY    = 0;
-    private double  currentX   = -1; // -1 = use frac from config
-    private double  currentY   = -1;
+    private boolean keyHeld  = false;
+    private boolean dragging = false;
+    private double  offsetX  = 0;
+    private double  offsetY  = 0;
 
-    public DragHandler(ModConfig config) {
-        this.config = config;
-    }
+    // Track the HORIZONTAL CENTER so the pill/card stays centred as its width changes.
+    // -1 signals "not yet initialised — use config fraction on first call".
+    private double centerX = -1;
+    private double topY    = -1;
+
+    public DragHandler(ModConfig config) { this.config = config; }
 
     public void onKeyPress(boolean isAlt)   { keyHeld = isAlt; if (!keyHeld) endDrag(); }
     public void onKeyRelease(boolean isAlt) { if (!isAlt) { keyHeld = false; endDrag(); } }
@@ -24,7 +25,7 @@ public class DragHandler {
         if (!keyHeld) return;
         if (mx >= px && mx <= px + pw && my >= py && my <= py + ph) {
             dragging = true;
-            offsetX  = mx - px;
+            offsetX  = mx - px; // offset from left edge of pill
             offsetY  = my - py;
         }
     }
@@ -33,38 +34,40 @@ public class DragHandler {
 
     public void onMouseMove(double mx, double my, int screenW, int screenH, int pw, int ph) {
         if (!dragging) return;
-        double newX = mx - offsetX;
-        double newY = my - offsetY;
-        newX = Math.max(0, Math.min(screenW - pw, newX));
-        newY = Math.max(0, Math.min(screenH - ph, newY));
-        currentX = newX;
-        currentY = newY;
+        double newLeft = mx - offsetX;
+        double newTop  = my - offsetY;
+        newLeft  = Math.max(0, Math.min(screenW - pw, newLeft));
+        newTop   = Math.max(0, Math.min(screenH - ph, newTop));
+        centerX  = newLeft + pw / 2.0;
+        topY     = newTop;
     }
 
     public boolean isDragging() { return dragging; }
     public boolean isKeyHeld()  { return keyHeld; }
 
+    /**
+     * Returns the left edge of the pill/card.
+     * Centering is based on {@code centerX}, so expanding the card keeps it centred.
+     */
     public int getPillX(int screenW, int pillW) {
-        if (currentX < 0) currentX = config.pillXFrac * screenW - pillW / 2.0;
-        return (int) currentX;
+        if (centerX < 0) centerX = config.pillXFrac * screenW;
+        return (int)(centerX - pillW / 2.0);
     }
 
     public int getPillY(int screenH, int pillH) {
-        if (currentY < 0) currentY = config.pillYFrac * screenH;
-        return (int) currentY;
+        if (topY < 0) topY = config.pillYFrac * screenH;
+        return (int) topY;
+    }
+
+    /** Sync center-X and top-Y fractions to config while dragging. */
+    public void syncToConfig(int pillY, int screenW, int screenH) {
+        config.pillXFrac = (float)(centerX / screenW);
+        config.pillYFrac = (float)(pillY)  / screenH;
     }
 
     private void endDrag() {
         if (!dragging) return;
         dragging = false;
-        // Save to config as fractions so it's resolution-independent
-        // (screenW/H not available here; saved lazily in MediaHUD on next frame)
         config.save();
-    }
-
-    /** Call from MediaHUD after computing pillX/pillY to update config fracs. */
-    public void syncToConfig(int pillX, int pillY, int screenW, int screenH) {
-        config.pillXFrac = (float)(pillX + 0f) / screenW;
-        config.pillYFrac = (float)(pillY + 0f) / screenH;
     }
 }

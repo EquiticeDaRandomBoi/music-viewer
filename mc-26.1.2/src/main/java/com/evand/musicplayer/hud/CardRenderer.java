@@ -1,26 +1,23 @@
-// common-src/com/evand/musicplayer/hud/CardRenderer.java  (MC 1.21.11 / Yarn API)
 package com.evand.musicplayer.hud;
 
 import com.evand.musicplayer.media.MediaInfo;
 import com.evand.musicplayer.media.ThumbnailManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 
 public class CardRenderer {
 
     @FunctionalInterface
-    public interface SeekCallback {
-        void seek(long positionMs);
-    }
+    public interface SeekCallback { void seek(long positionMs); }
 
     private static final int   BG_COLOR   = 0xFF000000;
     private static final float CORNER_R   = 10f;
     private static final int   THUMB_SIZE = 40;
     private static final float THUMB_R    = 7f;
-    private static final int   PAD        = 6;   // outer padding
-    private static final int   THUMB_GAP  = 6;   // gap between thumb and text column
+    private static final int   PAD        = 6;
+    private static final int   THUMB_GAP  = 6;
     private static final int   BUTTON_W   = 24;
     private static final int   BUTTON_H   = 18;
     private static final int   BAR_H      = 3;
@@ -30,7 +27,7 @@ public class CardRenderer {
     public static int barX, barY, barWidth;
     public static boolean cardDrawn = false;
 
-    public static void draw(DrawContext ctx, MediaInfo info, MarqueeText marquee,
+    public static void draw(GuiGraphicsExtractor ctx, MediaInfo info, MarqueeText marquee,
                             PillAnimation anim, int x, int y, float alpha,
                             SeekCallback onSeek) {
         cardDrawn = true;
@@ -47,7 +44,7 @@ public class CardRenderer {
         int barBg   = 0x00333333 | a;
         int barFg   = 0x00FFFFFF | a;
 
-        TextRenderer tr = MinecraftClient.getInstance().textRenderer;
+        Font font = Minecraft.getInstance().font;
 
         // ── Row 1: thumbnail (left) + title/artist (right) ────────────────────
         int thumbX = x + PAD;
@@ -63,10 +60,9 @@ public class CardRenderer {
         String title  = coalesce(info != null ? info.title()  : null, "Unknown");
         String artist = coalesce(info != null ? info.artist() : null, "");
 
-        int textX     = thumbX + THUMB_SIZE + THUMB_GAP;   // x+52
-        int textAreaW = w - PAD - THUMB_SIZE - THUMB_GAP - PAD;  // 155-6-40-6-6=97
+        int textX     = thumbX + THUMB_SIZE + THUMB_GAP;
+        int textAreaW = w - PAD - THUMB_SIZE - THUMB_GAP - PAD;
 
-        // Vertically center the text block inside the thumb height
         int textBlockH = artist.isEmpty() ? 8 : (8 + 3 + 8);
         int textTopY   = thumbY + (THUMB_SIZE - textBlockH) / 2;
 
@@ -74,27 +70,25 @@ public class CardRenderer {
         marquee.setBoxWidth(textAreaW);
         ctx.enableScissor(textX, textTopY, textX + textAreaW, textTopY + 8);
         int off = marquee.drawOffset();
-        ctx.drawText(tr, title, textX - off, textTopY, textCol, false);
+        ctx.text(font, title, textX - off, textTopY, textCol);
         if (marquee.scrolls()) {
-            ctx.drawText(tr, title, textX - off + marquee.textWidth() + MarqueeText.GAP_PX, textTopY, textCol, false);
+            ctx.text(font, title, textX - off + marquee.textWidth() + MarqueeText.GAP_PX, textTopY, textCol);
         }
         ctx.disableScissor();
 
         if (!artist.isEmpty()) {
             int artistY = textTopY + 8 + 3;
-            String displayArtist = tr.getWidth(artist) > textAreaW
-                    ? tr.trimToWidth(artist, textAreaW - tr.getWidth("...")) + "..."
-                    : artist;
+            String displayArtist = ellipsize(font, artist, textAreaW);
             ctx.enableScissor(textX, artistY, textX + textAreaW, artistY + 8);
-            ctx.drawText(tr, displayArtist, textX, artistY, dimCol, false);
+            ctx.text(font, displayArtist, textX, artistY, dimCol);
             ctx.disableScissor();
         }
 
         // ── Row 2: timeline bar ───────────────────────────────────────────────
-        int rowBottom = thumbY + THUMB_SIZE;   // y+46
+        int rowBottom = thumbY + THUMB_SIZE;
         barX     = x + PAD;
-        barY     = rowBottom + 4;              // y+50
-        barWidth = w - PAD * 2;               // 143
+        barY     = rowBottom + 4;
+        barWidth = w - PAD * 2;
 
         if (info != null && info.durationMs() > 0) {
             RoundedRectRenderer.fill(ctx, barX, barY, barWidth, BAR_H, BAR_H / 2f, barBg);
@@ -103,33 +97,42 @@ public class CardRenderer {
                 RoundedRectRenderer.fill(ctx, barX, barY, progW, BAR_H, BAR_H / 2f, barFg);
             }
 
-            // Timestamps
-            int tsY = barY + BAR_H + 3;   // y+56
+            int tsY = barY + BAR_H + 3;
             String elapsed   = info.elapsedFormatted();
             String remaining = info.remainingFormatted();
-            ctx.drawText(tr, elapsed,   barX,                                    tsY, dimCol, false);
-            ctx.drawText(tr, remaining, barX + barWidth - tr.getWidth(remaining), tsY, dimCol, false);
+            ctx.text(font, elapsed,   barX,                                    tsY, dimCol);
+            ctx.text(font, remaining, barX + barWidth - font.width(remaining), tsY, dimCol);
         }
 
         // ── Row 3: play/pause button (centered) ──────────────────────────────
-        // y+50+3+3+8+6 = y+70  (bar + gap + ts line + gap)
-        int btnY = barY + BAR_H + 3 + 8 + PAD;  // y+72
+        int btnY = barY + BAR_H + 3 + 8 + PAD;
         playBtnX = x + w / 2 - BUTTON_W / 2;
         playBtnY = btnY;
         String playLabel = (info != null && info.isPlaying()) ? "⏸" : "▶";
-        drawButton(ctx, tr, playBtnX, btnY, BUTTON_W, BUTTON_H, playLabel, textCol);
-        // Total height needed: btnY - y + BUTTON_H + PAD = 72 + 18 + 6 = 96 → CARD_H
+        drawButton(ctx, font, playBtnX, btnY, BUTTON_W, BUTTON_H, playLabel, textCol);
     }
 
-    private static void drawButton(DrawContext ctx, TextRenderer tr,
+    private static void drawButton(GuiGraphicsExtractor ctx, Font font,
                                    int x, int y, int w, int h,
                                    String label, int color) {
         RoundedRectRenderer.fill(ctx, x, y, w, h, 4f, 0xFF1A1A1A);
-        int lw = tr.getWidth(label);
-        ctx.drawText(tr, label, x + (w - lw) / 2, y + (h - 8) / 2, color, false);
+        int lw = font.width(label);
+        ctx.text(font, label, x + (w - lw) / 2, y + (h - 8) / 2, color);
     }
 
     private static String coalesce(String s, String fallback) {
         return (s != null && !s.isEmpty()) ? s : fallback;
+    }
+
+    private static String ellipsize(Font font, String s, int maxPx) {
+        if (font.width(s) <= maxPx) return s;
+        int limit = maxPx - font.width("...");
+        int w = 0, end = 0;
+        for (int i = 0; i < s.length(); i++) {
+            int cw = font.width(s.substring(i, i + 1));
+            if (w + cw > limit) break;
+            w += cw; end = i + 1;
+        }
+        return s.substring(0, end) + "...";
     }
 }

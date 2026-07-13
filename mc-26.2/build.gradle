@@ -1,4 +1,8 @@
-// mc-26.1.2 uses official Mojang mappings; Yarn does not exist for 26.x
+// mc-26.2 — Minecraft 26.2.x (Mojang identity mappings, Java 25)
+// Java overrides are SHARED from mc-26.1.2/src/main/java to avoid duplication.
+// If MC 26.2 breaks an API, add an mc-26.2-specific override by:
+//   1. Creating the file in mc-26.2/src/main/java/...
+//   2. Adding the matching exclude to the mc-26.1.2 fileTree below.
 plugins {
     id 'fabric-loom' version '1.18.0-alpha.7'
     id 'java'
@@ -6,7 +10,7 @@ plugins {
 
 group = 'com.evand'
 version = '1.0.0'
-base { archivesName = 'musicplayer-26.1.2' }
+base { archivesName = 'musicplayer-26.2' }
 
 java {
     sourceCompatibility = JavaVersion.VERSION_25
@@ -15,17 +19,15 @@ java {
 
 sourceSets {
     main {
-        java {
-            // src/main/java holds 26.1.2-specific overrides; common-src added below via fileTree
-        }
         resources { srcDir "${rootDir}/common-resources" }
     }
 }
 
-// Add shared sources, excluding files that have 26.1.2-specific overrides in src/main/java.
-// NOTE: cannot use sourceSets.main.java.exclude() here because it would also exclude
-// the same relative paths from src/main/java (Gradle exclude applies to ALL source dirs).
+// Java sources: local overrides (if any) + mc-26.1.2 overrides + filtered common-src.
+// When mc-26.2 needs its own override for a file, add it to mc-26.2/src/main/java AND
+// exclude it from the mc-26.1.2 fileTree here.
 tasks.named('compileJava').configure {
+    source fileTree("${rootDir}/mc-26.1.2/src/main/java")
     source fileTree("${rootDir}/common-src") {
         exclude 'com/evand/musicplayer/hud/MarqueeText.java'
         exclude 'com/evand/musicplayer/hud/RoundedRectRenderer.java'
@@ -43,6 +45,7 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
+    // Reuse the identity mapping from mc-26.1.2 (same trivial file; update if class names change)
     mappings loom.layered { it.mappings(rootProject.file('mc-26.1.2/identity.tiny')) }
     modImplementation "net.fabricmc:fabric-loader:${loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"

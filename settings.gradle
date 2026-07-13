@@ -9,3 +9,5 @@ pluginManagement {
 rootProject.name = 'musicplayer'
 include 'mc-1.21.11'
 include 'mc-26.1.2'
+// Uncomment when MC 26.2 is available on maven.fabricmc.net and update mc-26.2/gradle.properties:
+// include 'mc-26.2'

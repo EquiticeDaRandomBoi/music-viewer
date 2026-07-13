@@ -2,18 +2,21 @@
   "schemaVersion": 1,
   "id": "musicplayer",
   "version": "${version}",
-  "name": "Music Player",
-  "description": "OS media player HUD pill for Minecraft",
+  "name": "Music Player HUD",
+  "description": "Shows a live music HUD pill/card in-game for whatever is playing on your PC. Windows only (uses Windows SMTC). Displays title, artist, album art, seek bar, and play/pause control.",
   "authors": ["evand"],
-  "environment": "*",
+  "contact": {
+    "sources": "https://github.com/AstroDaRandomBoi/musicplayer"
+  },
+  "license": "MIT",
+  "environment": "client",
   "entrypoints": {
-    "main":   ["com.evand.musicplayer.MusicPlayerMod"],
     "client": ["com.evand.musicplayer.client.MusicPlayerClient"]
   },
   "mixins": ["musicplayer.mixins.json"],
   "depends": {
     "fabricloader": ">=0.17.0",
     "fabric-api": "*",
-    "minecraft": "~26.1.2"
+    "minecraft": ">=26.1 <26.2"
   }
 }
