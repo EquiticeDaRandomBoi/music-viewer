@@ -26,8 +26,6 @@ public class CardRenderer {
     private static final int   BAR_H      = 3;
 
     public static int playBtnX, playBtnY;
-    public static int prevBtnX, prevBtnY;
-    public static int nextBtnX, nextBtnY;
     public static int btnW = BUTTON_W, btnH = BUTTON_H;
     public static int barX, barY, barWidth;
     public static boolean cardDrawn = false;
@@ -113,19 +111,12 @@ public class CardRenderer {
             ctx.drawText(tr, remaining, barX + barWidth - tr.getWidth(remaining), tsY, dimCol, false);
         }
 
-        // ── Row 3: prev / play-pause / next buttons (centered) ───────────────
-        int btnY    = barY + BAR_H + 3 + 8 + PAD;
-        int btnGap  = 4;
+        // ── Row 3: play/pause button (centered) ──────────────────────────────
+        int btnY = barY + BAR_H + 3 + 8 + PAD;
         playBtnX = x + w / 2 - BUTTON_W / 2;
         playBtnY = btnY;
-        prevBtnX = playBtnX - BUTTON_W - btnGap;
-        prevBtnY = btnY;
-        nextBtnX = playBtnX + BUTTON_W + btnGap;
-        nextBtnY = btnY;
         String playLabel = (info != null && info.isPlaying()) ? "⏸" : "▶";
-        drawButton(ctx, tr, prevBtnX, btnY, BUTTON_W, BUTTON_H, "⏮", textCol);
         drawButton(ctx, tr, playBtnX, btnY, BUTTON_W, BUTTON_H, playLabel, textCol);
-        drawButton(ctx, tr, nextBtnX, btnY, BUTTON_W, BUTTON_H, "⏭", textCol);
     }
 
     private static void drawButton(DrawContext ctx, TextRenderer tr,
