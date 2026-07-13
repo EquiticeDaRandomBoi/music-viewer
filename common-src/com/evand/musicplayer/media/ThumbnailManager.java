@@ -7,6 +7,7 @@ import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
 
 import java.nio.file.*;
+import java.nio.file.StandardOpenOption;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class ThumbnailManager {
@@ -15,6 +16,8 @@ public class ThumbnailManager {
     // Two texture slots — we ping-pong between them so old texture stays alive during fade.
     private static final Identifier ID_A = Identifier.of("musicplayer", "thumb_a");
     private static final Identifier ID_B = Identifier.of("musicplayer", "thumb_b");
+    private static final Path DEBUG_LOG  = Path.of(
+        System.getProperty("java.io.tmpdir"), "musicplayer", "thumb_java_debug.log");
 
     public static final float FADE_DURATION_MS = 500f;
 
@@ -53,11 +56,14 @@ public class ThumbnailManager {
         Path p = Path.of(path);
         if (!Files.exists(p)) { pendingPath.compareAndSet(null, path); return; }
 
+        byte[] bytes = null;
         try {
-            byte[] bytes = Files.readAllBytes(p);
+            bytes = Files.readAllBytes(p);
+            log("reading " + bytes.length + " bytes from " + path);
             NativeImage image = NativeImage.read(bytes);
             int w = image.getWidth(), h = image.getHeight();
-            if (w <= 0 || h <= 0) { image.close(); return; }
+            log("decoded " + w + "x" + h);
+            if (w <= 0 || h <= 0) { image.close(); log("bad dims"); return; }
 
             // Load new image into the OPPOSITE slot (keeps current alive for crossfade).
             boolean nextIsA = !currIsA;
@@ -76,6 +82,7 @@ public class ThumbnailManager {
             MinecraftClient.getInstance().getTextureManager().registerTexture(nextId, newTex);
             if (nextIsA) { texA = newTex; aReg = true; }
             else         { texB = newTex; bReg = true; }
+            log("registered OK " + w + "x" + h + " slot=" + (nextIsA ? "A" : "B"));
 
             // Does the current slot (about to become prev) have a texture?
             // Check BEFORE the swap so we read the old currIsA value.
@@ -88,6 +95,7 @@ public class ThumbnailManager {
             fadeProgress = hasPrev ? 0f : 1f;
 
         } catch (Exception e) {
+            log("FAILED: " + e);
             System.err.println("[MusicPlayer] Thumbnail load failed: " + e);
         }
     }
@@ -138,4 +146,11 @@ public class ThumbnailManager {
         }
     }
 
+    private static void log(String msg) {
+        try {
+            String line = java.time.LocalTime.now() + " [thumb] " + msg + "\n";
+            Files.writeString(DEBUG_LOG, line,
+                StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (Exception ignored) {}
+    }
 }

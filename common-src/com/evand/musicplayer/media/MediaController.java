@@ -8,12 +8,6 @@ import java.nio.file.*;
 public class MediaController {
     public static final MediaController INSTANCE = new MediaController();
 
-    private static final String PS_EXE = detectPowerShell();
-    private static String detectPowerShell() {
-        Path p = Path.of("C:\\Program Files\\PowerShell\\7\\pwsh.exe");
-        return Files.exists(p) ? p.toString() : "powershell.exe";
-    }
-
     private volatile Path        serverPath;
     private volatile Process     server;
     private volatile PrintWriter serverStdin;
@@ -56,7 +50,7 @@ public class MediaController {
         if (server != null && server.isAlive()) return;
         try {
             ProcessBuilder pb = new ProcessBuilder(
-                PS_EXE, "-ExecutionPolicy", "Bypass",
+                "powershell.exe", "-ExecutionPolicy", "Bypass",
                 "-NoProfile", "-NonInteractive",
                 "-File", serverPath.toAbsolutePath().toString()
             );
