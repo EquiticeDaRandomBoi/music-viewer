@@ -52,6 +52,7 @@ $lastTitle    = $null
 $lastSource   = $null
 $thumbPath    = ''
 $thumbFetched = $false   # retry each poll until thumbnail successfully written
+$thumbDelay   = 0        # polls to skip after a track change so SMTC thumbnail catches up
 $thumbLog     = [System.IO.Path]::Combine($tempDir, 'thumb_ps_debug.log')
 
 while ($true) {
@@ -101,13 +102,18 @@ while ($true) {
             $lastSource   = $sourceId
             $thumbPath    = ''
             $thumbFetched = $false
+            # Wait 4 polls (~800 ms) before fetching so SMTC has time to push the
+            # new artwork. Fetching immediately grabs the previous track's thumbnail.
+            $thumbDelay   = 4
             "$(Get-Date -F 'HH:mm:ss') track change: '$title' / '$sourceId'" |
                 Add-Content $thumbLog -EA SilentlyContinue
         }
 
         # Fetch thumbnail on every poll until successful (handles first-poll failures
         # and non-JPEG formats like WebP from browsers — WIC re-encodes to JPEG).
-        if (-not $thumbFetched -and $null -ne $props.Thumbnail) {
+        if ($thumbDelay -gt 0) {
+            $thumbDelay--
+        } elseif (-not $thumbFetched -and $null -ne $props.Thumbnail) {
             try {
                 $stream    = Await ($props.Thumbnail.OpenReadAsync()) `
                                    ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
